@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0c3b34"><title>Accept CareFlow Employee Invitation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+<link rel="stylesheet" href="./css/app.css"></head>
+<body class="invite-body">
+ <main class="invite-card">
+  <div class="invite-brand"><span class="mark"><i class="fa-solid fa-heart-pulse"></i></span><b>careflow</b></div>
+  <h1>CareFlow Employee Account</h1>
+  <p class="lead">Create a password to activate your employee login. Your organization has already created your employee record.</p>
+  <form id="invite-form">
+   <label>New password<input id="password" type="password" minlength="12" maxlength="128" required class="field" autocomplete="new-password"></label>
+   <label>Confirm password<input id="confirm" type="password" minlength="12" maxlength="128" required class="field" autocomplete="new-password"></label>
+   <button class="btn-primary" type="submit">Activate account</button>
+  </form>
+  <p id="message" role="status"></p>
+  <a href="./index.html" class="back">Return to CareFlow login</a>
+ </main>
+ <script>
+ const API=(location.protocol==='file:'||location.port==='5500')?'http://localhost:5010/api/v1':'/api/v1';
+ const token=new URLSearchParams(location.search).get('token')||'';
+ document.getElementById('invite-form').addEventListener('submit',async e=>{
+  e.preventDefault();const p=document.getElementById('password').value,c=document.getElementById('confirm').value,m=document.getElementById('message');
+  if(p!==c){m.textContent='Passwords do not match.';return}
+  if(p.length<12){m.textContent='Use at least 12 characters.';return}
+  const btn=e.target.querySelector('button[type=submit]');btn.classList.add('is-loading');btn.disabled=true;
+  try{const r=await fetch(`${API}/hrm/accept-invitation`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token,password:p})});const d=await r.json();if(!r.ok)throw new Error(d.message||'Invitation could not be accepted');m.textContent='Account activated. You can now sign in through CareFlow.';e.target.reset()}catch(err){m.textContent=err.message}finally{btn.classList.remove('is-loading');btn.disabled=false}
+ });
+ </script>
+</body>
+</html>

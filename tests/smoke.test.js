@@ -1,0 +1,3 @@
+const test=require('node:test');const assert=require('node:assert/strict');const app=require('../src/server');
+test('health endpoint responds without database access',async()=>{const server=app.listen(0);try{const address=server.address();const response=await fetch(`http://127.0.0.1:${address.port}/api/v1/health`);assert.equal(response.status,200);const body=await response.json();assert.equal(body.success,true);assert.equal(body.service,'careflow-api')}finally{server.close()}});
+test('unknown routes return a structured 404',async()=>{const server=app.listen(0);try{const response=await fetch(`http://127.0.0.1:${server.address().port}/api/v1/not-a-route`);assert.equal(response.status,404);assert.equal((await response.json()).success,false)}finally{server.close()}});

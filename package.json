@@ -1,0 +1,44 @@
+{
+  "name": "careflow-healthcare-saas",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CareFlow - multi-tenant healthcare management SaaS (API + web client in one project)",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test",
+    "seed": "node src/scripts/seed.js",
+    "create-super-admin": "node src/scripts/create-super-admin.js",
+    "reset-admin": "node src/scripts/reset-admin.js",
+    "migrate:pharmacy:legacy": "node src/scripts/migrate-legacy-pharmacy-stock.js",
+    "test:contracts": "node --test tests/phase3-contract.test.js tests/phase4-contract.test.js tests/phase5-contract.test.js tests/phase6-contract.test.js tests/phase7-contract.test.js tests/phase8-contract.test.js tests/phase9-contract.test.js tests/phase10-contract.test.js tests/phase11-contract.test.js tests/phase12-security.test.js",
+    "worker": "node src/worker.js"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "dependencies": {
+    "argon2": "^0.41.1",
+    "compression": "^1.7.4",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "express-validator": "^7.2.1",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.9.5",
+    "morgan": "^1.10.0",
+    "multer": "^2.0.2",
+    "pino": "^9.6.0",
+    "pino-http": "^10.4.0",
+    "zod": "^3.24.1",
+    "nodemailer": "^6.9.16",
+    "pdfkit": "^0.16.0"
+  },
+  "devDependencies": {
+    "supertest": "^7.0.0"
+  }
+}

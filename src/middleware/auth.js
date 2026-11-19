@@ -15,31 +15,27 @@ const DEFAULT_PERMISSIONS={
  accountant:['dashboard.view','ipd.view','ipd.billing.view','ipd.billing.manage','billing.view','billing.create','billing.payments','billing.services.manage','billing.tax.manage','billing.discount.override','billing.refunds','billing.refunds.approve','billing.refunds.process','billing.expenses.manage','billing.expenses.approve','billing.expenses.pay','billing.accounting.view','billing.accounting.manage','pharmacy.view','pharmacy.supplier.manage','pharmacy.reports.view','reports.view','branches.view'],patient:[]
 };
 exports.DEFAULT_PERMISSIONS=DEFAULT_PERMISSIONS;
+// LOGIN REMOVED: every request is automatically treated as the default admin (ADMIN_EMAIL from .env,
+// else the first active hospital_admin, else a super_admin). No token / session / password is checked.
+let _autoUser=null,_autoUserAt=0;
+const resolveAutoUser=async()=>{
+ if(_autoUser&&Date.now()-_autoUserAt<15000)return _autoUser;
+ const email=String(process.env.ADMIN_EMAIL||process.env.DEV_USER_EMAIL||'').toLowerCase().trim();
+ let u=email?await User.findOne({email,active:true,tenantId:{$ne:null}}):null;
+ if(!u)u=await User.findOne({role:'hospital_admin',active:true,tenantId:{$ne:null}}).sort({createdAt:1});
+ if(!u)u=await User.findOne({role:'super_admin',active:true});
+ if(u){_autoUser=u;_autoUserAt=Date.now()}
+ return u;
+};
 exports.authenticate=asyncHandler(async(req,res,next)=>{
  if(req.user&&req.permissions)return next();
- const header=req.headers.authorization||'',token=header.startsWith('Bearer ')?header.slice(7):null;
- // DEV ONLY: DISABLE_AUTH=true skips login and acts as DEV_USER_EMAIL. Never works when NODE_ENV=production.
- if(process.env.DISABLE_AUTH==='true'&&process.env.NODE_ENV!=='production'){
-  const devUser=await User.findOne({email:String(process.env.DEV_USER_EMAIL||'admin@careflow.demo').toLowerCase(),active:true});
-  if(!devUser)return res.status(401).json({success:false,message:'DISABLE_AUTH is on but DEV_USER_EMAIL user was not found. Run: npm run seed'});
-  req.sessionId=null;req.user=devUser;req.tenantId=devUser.tenantId?String(devUser.tenantId):null;req.branchIds=(devUser.branchIds||[]).map(String);
-  if(devUser.role==='super_admin'){req.permissions=['*']}else{
-   const devRoles=await Role.find({tenantId:req.tenantId,key:{$in:[devUser.role,...(devUser.customRoles||[])]}}).lean();
-   req.permissions=[...(DEFAULT_PERMISSIONS[devUser.role]||[]),...(devUser.permissions||[]),...devRoles.flatMap(r=>r.permissions||[])];
-   if(devUser.role==='hospital_admin')req.permissions.push('*');
-  }
-  return next();
- }
- if(!token)return res.status(401).json({success:false,message:'Authentication required'});
- let payload;try{payload=jwt.verify(token,process.env.JWT_ACCESS_SECRET)}catch{return res.status(401).json({success:false,message:'Invalid or expired access token'})}
- if(!payload.sid)return res.status(401).json({success:false,message:'Session is invalid'});const activeSession=await Session.findOne({_id:payload.sid,userId:payload.sub,revokedAt:null,expiresAt:{$gt:new Date()}}).select('_id');if(!activeSession)return res.status(401).json({success:false,message:'Session has expired or been revoked'});const user=await User.findById(payload.sub);
- if(!user||!user.active)return res.status(401).json({success:false,message:'Account unavailable'});if(user.tenantId&&(await cached('t:'+user.tenantId,()=>Tenant.findById(user.tenantId).select('status').lean()))?.status==='suspended')return res.status(403).json({success:false,message:'Organization access is suspended'});
- if(Number(user.tokenVersion||0)!==Number(payload.tokenVersion||0))return res.status(401).json({success:false,message:'Session has been revoked'});
- if(String(user.tenantId||'')!==String(payload.tenantId||''))return res.status(401).json({success:false,message:'Session tenant mismatch'});
- req.sessionId=payload.sid;req.user=user;req.tenantId=user.tenantId?String(user.tenantId):null;req.branchIds=(user.branchIds||[]).map(String);
- if(user.role==='super_admin'){req.permissions=['*'];}
- else {
-  const roleKeys=[user.role,...(user.customRoles||[])];const roles=await cached('r:'+req.tenantId+':'+roleKeys.join(','),()=>Role.find({tenantId:req.tenantId,key:{$in:roleKeys}}).lean());
+ const user=await resolveAutoUser();
+ if(!user)return res.status(500).json({success:false,message:'No admin user found in database. Set ADMIN_EMAIL / ADMIN_PASSWORD in .env and restart (or run: npm run reset-admin).'});
+ req.sessionId=null;req.user=user;req.tenantId=user.tenantId?String(user.tenantId):null;req.branchIds=(user.branchIds||[]).map(String);
+ if(user.role==='super_admin'){req.permissions=['*']}
+ else{
+  const roleKeys=[user.role,...(user.customRoles||[])];
+  const roles=await cached('r:'+req.tenantId+':'+roleKeys.join(','),()=>Role.find({tenantId:req.tenantId,key:{$in:roleKeys}}).lean());
   req.permissions=[...(DEFAULT_PERMISSIONS[user.role]||[]),...(user.permissions||[]),...roles.flatMap(r=>r.permissions||[])];
   if(user.role==='hospital_admin')req.permissions.push('*');
  }
